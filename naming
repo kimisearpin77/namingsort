@@ -1,3 +1,404 @@
-<iframe src="https://YOUR-URL/acid-molecular-sort.html"
-        width="100%" height="900" style="border:none;"
-        title="Molecular Compounds Sort"></iframe>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Covalent Naming Sort</title>
+<style>
+  :root {
+    --blue: #cfe2f3; --blue-b: #1c1c1c;
+    --green: #d9ead3; --red: #e6b8af; --yellow: #fff2cc;
+    --purple: #9900ff; --ink: #1c1c1c; --muted: #555;
+    --ok: #2e7d32; --bad: #c62828;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--ink); background: #fff; padding: 12px;
+    -webkit-user-select: none; user-select: none;
+  }
+  h1 { font-size: 1.35rem; text-align: center; margin: 0 0 2px; }
+  .sub { text-align: center; margin: 0 0 10px; color: var(--muted); font-size: .95rem; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; margin-bottom: 10px; }
+  button {
+    font: inherit; font-size: .9rem; padding: 7px 14px; border-radius: 6px;
+    border: 2px solid var(--ink); background: #fff; cursor: pointer;
+  }
+  button:hover { background: #f3f3f3; }
+  button.primary { background: var(--purple); color: #fff; border-color: var(--purple); }
+  button.primary:hover { background: #7a00cc; }
+  button:focus-visible, .card:focus-visible, .bin:focus-visible { outline: 3px solid var(--purple); outline-offset: 2px; }
+  .seg { display: inline-flex; border: 2px solid var(--ink); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 7px 10px; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+
+  .start {
+    border: 2px solid var(--ink); background: var(--blue); padding: 8px 12px;
+    text-align: center; font-weight: 600; max-width: 560px; margin: 0 auto 10px;
+  }
+
+  /* card pool */
+  .pool {
+    border: 2px dashed #999; border-radius: 8px; min-height: 74px; padding: 8px;
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px;
+    background: #fafafa;
+  }
+  .pool.over { background: #f0e6ff; border-color: var(--purple); }
+  .pool:empty::after { content: "All compounds sorted! Press “Check Answers.”"; color: var(--muted); align-self: center; }
+
+  .card {
+    background: #fff; border: 2px solid var(--ink); border-radius: 6px;
+    padding: 6px 10px; min-width: 70px; text-align: center; cursor: grab;
+    touch-action: none; box-shadow: 0 2px 0 rgba(0,0,0,.25); line-height: 1.2;
+  }
+  .card .f { font-size: 1.15rem; font-weight: 600; }
+  .card .n { font-size: .8rem; color: var(--muted); }
+  .card.selected { border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple); }
+  .card.correct { border-color: var(--ok); background: #e8f5e9; }
+  .card.wrong { border-color: var(--bad); background: #ffebee; }
+  .card.dragging { opacity: .3; }
+  .ghost { position: fixed; pointer-events: none; z-index: 1000; transform: rotate(-3deg); cursor: grabbing; }
+
+  /* bins */
+  .bins { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .bin { display: flex; flex-direction: column; border-radius: 8px; }
+  .bin-head { border: 2px solid var(--ink); padding: 6px 8px; text-align: center; font-weight: 600; }
+  .bin-path { font-size: .75rem; font-weight: 400; color: #333; display: block; }
+  .rule { font-size: .8rem; border: 2px solid var(--ink); border-top: 0; background: var(--blue); padding: 6px 8px; }
+  .rule.hidden { display: none; }
+  .drop {
+    flex: 1; min-height: 130px; border: 2px solid var(--ink); border-top: 0;
+    padding: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; background: #fff;
+    border-radius: 0 0 8px 8px;
+  }
+  .bin.over .drop, .bin.target .drop { background: #f0e6ff; }
+  .bin.target .drop { outline: 2px dashed var(--purple); outline-offset: -6px; }
+  .h-oxy { background: var(--green); }
+  .h-bin { background: var(--red); }
+  .h-mol { background: var(--red); }
+
+  .feedback { margin-top: 12px; text-align: center; font-weight: 600; min-height: 1.4em; }
+  .feedback.good { color: var(--ok); }
+  .feedback.meh { color: var(--bad); }
+  .explain { max-width: 760px; margin: 6px auto 0; font-size: .88rem; }
+  .explain li { margin: 3px 0; }
+  .explain .x { color: var(--bad); font-weight: 600; }
+
+  .prefix-table { font-size: .75rem; columns: 2; margin: 4px 0; padding: 0; list-style: none; }
+  .note { background: var(--yellow); border: 1px solid #999; padding: 3px 5px; margin-top: 4px; font-size: .75rem; }
+
+  @media (max-width: 640px) {
+    .bins { grid-template-columns: 1fr; }
+    .drop { min-height: 80px; }
+    h1 { font-size: 1.1rem; }
+  }
+  .sr { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+
+<h1>Molecular (Covalent) Compounds Sort</h1>
+<p class="sub">Drag each compound into the correct box &mdash; or tap a compound, then tap a box.</p>
+
+<div class="toolbar">
+  <span class="seg" role="group" aria-label="Show on cards">
+    <button type="button" data-show="formula" aria-pressed="true">Formulas</button>
+    <button type="button" data-show="name" aria-pressed="false">Names</button>
+    <button type="button" data-show="both" aria-pressed="false">Both</button>
+  </span>
+  <button type="button" id="hintBtn" aria-pressed="false">Show Rules</button>
+  <button type="button" class="primary" id="checkBtn">Check Answers</button>
+  <button type="button" id="resetBtn">Start Over</button>
+  <button type="button" id="newBtn">New Set</button>
+</div>
+
+<div class="start">First look for Hydrogen (H) at the front of the formula!</div>
+
+<div class="pool" id="pool" aria-label="Unsorted compounds"></div>
+
+<div class="bins">
+  <div class="bin" data-bin="oxy" tabindex="0" role="button" aria-label="Oxyacid box">
+    <div class="bin-head h-oxy">Oxyacid<span class="bin-path">Acid (has H) + has a polyatomic ion</span></div>
+    <div class="rule hidden">Use the polyatomic ion to name.<br><b>-ate</b> becomes <b>-ic</b><br><b>-ite</b> becomes <b>-ous</b><br><i>e.g. HNO<sub>3</sub>: nitrate &rarr; nitric acid</i></div>
+    <div class="drop"></div>
+  </div>
+  <div class="bin" data-bin="binary" tabindex="0" role="button" aria-label="Binary acid box">
+    <div class="bin-head h-bin">Binary Acid<span class="bin-path">Acid (has H) + NO polyatomic ion</span></div>
+    <div class="rule hidden">Name starts with <b>hydro-</b><br>Ends with <b>-ic</b> acid<br><i>e.g. HCl &rarr; hydrochloric acid</i></div>
+    <div class="drop"></div>
+  </div>
+  <div class="bin" data-bin="mol" tabindex="0" role="button" aria-label="Not an acid, use prefixes box">
+    <div class="bin-head h-mol">Not an Acid &ndash; Use Prefixes<span class="bin-path">No H at the front</span></div>
+    <div class="rule hidden">Prefixes tell how many atoms; second element ends in <b>-ide</b>.
+      <ul class="prefix-table">
+        <li>mono- 1</li><li>di- 2</li><li>tri- 3</li><li>tetra- 4</li><li>penta- 5</li>
+        <li>hexa- 6</li><li>hepta- 7</li><li>octa- 8</li><li>nona- 9</li><li>deca- 10</li>
+      </ul>
+      <div class="note">Only use mono- for the second element.</div>
+    </div>
+    <div class="drop"></div>
+  </div>
+</div>
+
+<div class="feedback" id="feedback" aria-live="polite"></div>
+<ul class="explain" id="explain"></ul>
+<div class="sr" id="live" aria-live="assertive"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Question bank ----------
+  // f = formula (HTML), n = name, c = correct bin, why = explanation
+  var BANK = [
+    // Oxyacids
+    { f: "HNO<sub>3</sub>",  n: "nitric acid",      c: "oxy", why: "H + nitrate (NO<sub>3</sub><sup>&minus;</sup>): -ate &rarr; -ic." },
+    { f: "HNO<sub>2</sub>",  n: "nitrous acid",     c: "oxy", why: "H + nitrite (NO<sub>2</sub><sup>&minus;</sup>): -ite &rarr; -ous." },
+    { f: "H<sub>2</sub>SO<sub>4</sub>", n: "sulfuric acid",  c: "oxy", why: "H + sulfate (SO<sub>4</sub><sup>2&minus;</sup>): -ate &rarr; -ic." },
+    { f: "H<sub>2</sub>SO<sub>3</sub>", n: "sulfurous acid", c: "oxy", why: "H + sulfite (SO<sub>3</sub><sup>2&minus;</sup>): -ite &rarr; -ous." },
+    { f: "H<sub>3</sub>PO<sub>4</sub>", n: "phosphoric acid", c: "oxy", why: "H + phosphate (PO<sub>4</sub><sup>3&minus;</sup>): -ate &rarr; -ic." },
+    { f: "H<sub>2</sub>CO<sub>3</sub>", n: "carbonic acid",  c: "oxy", why: "H + carbonate (CO<sub>3</sub><sup>2&minus;</sup>): -ate &rarr; -ic." },
+    { f: "HClO<sub>3</sub>", n: "chloric acid",     c: "oxy", why: "H + chlorate (ClO<sub>3</sub><sup>&minus;</sup>): -ate &rarr; -ic." },
+    { f: "HClO<sub>2</sub>", n: "chlorous acid",    c: "oxy", why: "H + chlorite (ClO<sub>2</sub><sup>&minus;</sup>): -ite &rarr; -ous." },
+    { f: "HC<sub>2</sub>H<sub>3</sub>O<sub>2</sub>", n: "acetic acid", c: "oxy", why: "H + acetate (C<sub>2</sub>H<sub>3</sub>O<sub>2</sub><sup>&minus;</sup>): -ate &rarr; -ic." },
+    // Binary acids
+    { f: "HCl", n: "hydrochloric acid", c: "binary", why: "H + chlorine only (no polyatomic): hydro- + chlor + -ic." },
+    { f: "HBr", n: "hydrobromic acid",  c: "binary", why: "H + bromine only (no polyatomic): hydro- + brom + -ic." },
+    { f: "HF",  n: "hydrofluoric acid", c: "binary", why: "H + fluorine only (no polyatomic): hydro- + fluor + -ic." },
+    { f: "HI",  n: "hydroiodic acid",   c: "binary", why: "H + iodine only (no polyatomic): hydro- + iod + -ic." },
+    { f: "H<sub>2</sub>S", n: "hydrosulfuric acid", c: "binary", why: "H + sulfur only (no polyatomic): hydro- + sulfur + -ic." },
+    // Molecular (not acids)
+    { f: "CO<sub>2</sub>",  n: "carbon dioxide",           c: "mol", why: "No H in front: 1 C (no mono- on first), 2 O = di-." },
+    { f: "CO",   n: "carbon monoxide",           c: "mol", why: "No H in front: mono- is used only on the second element." },
+    { f: "N<sub>2</sub>O<sub>4</sub>", n: "dinitrogen tetroxide", c: "mol", why: "No H in front: 2 N = di-, 4 O = tetra-." },
+    { f: "PCl<sub>5</sub>", n: "phosphorus pentachloride", c: "mol", why: "No H in front: 5 Cl = penta-, ends in -ide." },
+    { f: "SF<sub>6</sub>",  n: "sulfur hexafluoride",      c: "mol", why: "No H in front: 6 F = hexa-, ends in -ide." },
+    { f: "CCl<sub>4</sub>", n: "carbon tetrachloride",     c: "mol", why: "No H in front: 4 Cl = tetra-, ends in -ide." },
+    { f: "P<sub>4</sub>O<sub>10</sub>", n: "tetraphosphorus decoxide", c: "mol", why: "No H in front: 4 P = tetra-, 10 O = deca-." },
+    { f: "N<sub>2</sub>O", n: "dinitrogen monoxide",       c: "mol", why: "No H in front: 2 N = di-, 1 O = mono- (second element)." },
+    { f: "SO<sub>3</sub>", n: "sulfur trioxide",           c: "mol", why: "No H in front: 3 O = tri-, ends in -ide." },
+    { f: "NO<sub>2</sub>", n: "nitrogen dioxide",          c: "mol", why: "No H in front: 2 O = di-, ends in -ide." },
+    { f: "S<sub>2</sub>Cl<sub>2</sub>", n: "disulfur dichloride", c: "mol", why: "No H in front: 2 S = di-, 2 Cl = di-." },
+    { f: "N<sub>2</sub>O<sub>5</sub>", n: "dinitrogen pentoxide", c: "mol", why: "No H in front: 2 N = di-, 5 O = penta-." }
+  ];
+  var PER_BIN = 4; // cards per category in each set
+  var BIN_LABEL = { oxy: "Oxyacid", binary: "Binary Acid", mol: "Not an Acid (prefixes)" };
+
+  var pool = document.getElementById("pool");
+  var bins = Array.prototype.slice.call(document.querySelectorAll(".bin"));
+  var feedback = document.getElementById("feedback");
+  var explain = document.getElementById("explain");
+  var live = document.getElementById("live");
+  var showMode = "formula";
+  var selected = null;
+  var currentSet = [];
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function pickSet() {
+    var out = [];
+    ["oxy", "binary", "mol"].forEach(function (k) {
+      out = out.concat(shuffle(BANK.filter(function (q) { return q.c === k; })).slice(0, PER_BIN));
+    });
+    return shuffle(out);
+  }
+
+  function cardHTML(q) {
+    if (showMode === "formula") return '<div class="f">' + q.f + '</div>';
+    if (showMode === "name") return '<div class="f" style="font-size:1rem">' + q.n + '</div>';
+    return '<div class="f">' + q.f + '</div><div class="n">' + q.n + '</div>';
+  }
+
+  function plain(html) { var d = document.createElement("div"); d.innerHTML = html; return d.textContent; }
+
+  function build(set) {
+    clearFeedback();
+    selected = null;
+    pool.innerHTML = "";
+    bins.forEach(function (b) { b.querySelector(".drop").innerHTML = ""; });
+    set.forEach(function (q, i) {
+      var c = document.createElement("div");
+      c.className = "card";
+      c.tabIndex = 0;
+      c.setAttribute("role", "button");
+      c.dataset.idx = i;
+      c.innerHTML = cardHTML(q);
+      c.setAttribute("aria-label", plain(q.f) + ", " + q.n);
+      attachCard(c);
+      pool.appendChild(c);
+    });
+  }
+
+  function rerenderCards() {
+    document.querySelectorAll(".card").forEach(function (c) {
+      c.innerHTML = cardHTML(currentSet[c.dataset.idx]);
+    });
+  }
+
+  function clearFeedback() {
+    feedback.textContent = ""; feedback.className = "feedback";
+    explain.innerHTML = "";
+    document.querySelectorAll(".card").forEach(function (c) { c.classList.remove("correct", "wrong"); });
+  }
+
+  function select(card) {
+    if (selected) selected.classList.remove("selected");
+    selected = (selected === card) ? null : card;
+    if (selected) selected.classList.add("selected");
+    bins.forEach(function (b) { b.classList.toggle("target", !!selected); });
+  }
+
+  function moveTo(card, dest) {
+    card.classList.remove("correct", "wrong", "selected");
+    dest.appendChild(card);
+    if (selected === card) { selected = null; bins.forEach(function (b) { b.classList.remove("target"); }); }
+    feedback.textContent = ""; feedback.className = "feedback"; explain.innerHTML = "";
+    var q = currentSet[card.dataset.idx];
+    var where = dest === pool ? "unsorted area" : BIN_LABEL[dest.parentNode.dataset.bin];
+    live.textContent = plain(q.f) + " moved to " + where;
+  }
+
+  // ---------- Pointer drag (works with mouse, touch, pen) ----------
+  function attachCard(card) {
+    var startX, startY, ghost = null, offX, offY, pid = null;
+
+    card.addEventListener("pointerdown", function (e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      pid = e.pointerId; startX = e.clientX; startY = e.clientY;
+      var r = card.getBoundingClientRect(); offX = e.clientX - r.left; offY = e.clientY - r.top;
+      card.setPointerCapture(pid);
+    });
+
+    card.addEventListener("pointermove", function (e) {
+      if (pid !== e.pointerId) return;
+      if (!ghost) {
+        if (Math.abs(e.clientX - startX) + Math.abs(e.clientY - startY) < 6) return;
+        ghost = card.cloneNode(true);
+        ghost.classList.add("ghost"); ghost.classList.remove("selected");
+        ghost.style.width = card.offsetWidth + "px";
+        document.body.appendChild(ghost);
+        card.classList.add("dragging");
+      }
+      ghost.style.left = (e.clientX - offX) + "px";
+      ghost.style.top = (e.clientY - offY) + "px";
+      highlight(dropTargetAt(e.clientX, e.clientY));
+    });
+
+    function end(e, cancelled) {
+      if (pid !== e.pointerId) return;
+      pid = null;
+      if (ghost) {
+        var t = cancelled ? null : dropTargetAt(e.clientX, e.clientY);
+        ghost.remove(); ghost = null;
+        card.classList.remove("dragging");
+        highlight(null);
+        if (t) moveTo(card, t);
+      } else if (!cancelled) {
+        select(card); // simple tap/click
+      }
+    }
+    card.addEventListener("pointerup", function (e) { end(e, false); });
+    card.addEventListener("pointercancel", function (e) { end(e, true); });
+
+    card.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(card); }
+    });
+  }
+
+  function dropTargetAt(x, y) {
+    var el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    var bin = el.closest(".bin");
+    if (bin) return bin.querySelector(".drop");
+    if (el.closest(".pool")) return pool;
+    return null;
+  }
+
+  function highlight(target) {
+    bins.forEach(function (b) { b.classList.toggle("over", !!target && b.querySelector(".drop") === target); });
+    pool.classList.toggle("over", target === pool);
+  }
+
+  // Tap-to-place on bins and pool
+  bins.forEach(function (b) {
+    b.addEventListener("click", function (e) {
+      if (!selected || e.target.closest(".card")) return;
+      moveTo(selected, b.querySelector(".drop"));
+    });
+    b.addEventListener("keydown", function (e) {
+      if ((e.key === "Enter" || e.key === " ") && selected && !e.target.closest(".card")) {
+        e.preventDefault(); moveTo(selected, b.querySelector(".drop"));
+      }
+    });
+  });
+  pool.addEventListener("click", function (e) {
+    if (selected && !e.target.closest(".card") && selected.parentNode !== pool) moveTo(selected, pool);
+  });
+
+  // ---------- Checking ----------
+  function check() {
+    explain.innerHTML = "";
+    var right = 0, wrong = [], unsorted = pool.children.length;
+    bins.forEach(function (b) {
+      var key = b.dataset.bin;
+      Array.prototype.forEach.call(b.querySelectorAll(".card"), function (c) {
+        var q = currentSet[c.dataset.idx];
+        if (q.c === key) { c.classList.add("correct"); c.classList.remove("wrong"); right++; }
+        else { c.classList.add("wrong"); c.classList.remove("correct"); wrong.push({ q: q, put: key }); }
+      });
+    });
+    var total = currentSet.length;
+    if (right === total) {
+      feedback.textContent = "🎉 Perfect! " + right + " / " + total + " correct.";
+      feedback.className = "feedback good";
+    } else {
+      feedback.textContent = right + " / " + total + " correct" +
+        (unsorted ? " (" + unsorted + " still unsorted)" : "") + ". Drag the red cards to a new box and check again.";
+      feedback.className = "feedback meh";
+      if (document.getElementById("hintBtn").getAttribute("aria-pressed") === "true") {
+        wrong.forEach(function (w) {
+          var li = document.createElement("li");
+          li.innerHTML = '<span class="x">' + w.q.f + " (" + w.q.n + ")</span> is not in “" +
+            BIN_LABEL[w.put] + "”. Hint: " + w.q.why;
+          explain.appendChild(li);
+        });
+      } else if (wrong.length) {
+        var li = document.createElement("li");
+        li.style.listStyle = "none"; li.style.textAlign = "center";
+        li.textContent = "Tip: turn on “Show Rules” to see hints for incorrect cards.";
+        explain.appendChild(li);
+      }
+    }
+  }
+
+  // ---------- Toolbar ----------
+  document.querySelectorAll("[data-show]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      showMode = btn.dataset.show;
+      document.querySelectorAll("[data-show]").forEach(function (b) { b.setAttribute("aria-pressed", b === btn); });
+      rerenderCards();
+    });
+  });
+  document.getElementById("hintBtn").addEventListener("click", function () {
+    var on = this.getAttribute("aria-pressed") !== "true";
+    this.setAttribute("aria-pressed", on);
+    this.textContent = on ? "Hide Rules" : "Show Rules";
+    document.querySelectorAll(".rule").forEach(function (r) { r.classList.toggle("hidden", !on); });
+  });
+  document.getElementById("checkBtn").addEventListener("click", check);
+  document.getElementById("resetBtn").addEventListener("click", function () { build(currentSet); });
+  document.getElementById("newBtn").addEventListener("click", function () { currentSet = pickSet(); build(currentSet); });
+
+  currentSet = pickSet();
+  build(currentSet);
+})();
+</script>
+</body>
+</html>
